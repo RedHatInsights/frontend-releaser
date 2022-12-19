@@ -20,6 +20,9 @@ inputs:
     description: 'Array of users who can trigger a release'
     required: false
     default: '[]'
+  bot-name:
+    description: 'Github login name for bot to attach comment to PR'
+    required: false
 runs:
   using: 'node16'
   main: 'dist/index.js'

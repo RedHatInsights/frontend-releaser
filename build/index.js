@@ -19838,8 +19838,29 @@ var require_travis_bot = __commonJS({
 var require_gh_bot = __commonJS({
   "lib/gh-bot.js"(exports2, module2) {
     var axios = require_axios();
-    async function ghTrigger2({ owner, repo, number }, releaseType, context, config) {
-      context.log("Missing implementation!");
+    async function ghTrigger2({ owner, repo }, config) {
+      const body = {
+        "event_type": config.event_type
+      };
+      const githubActionURL = ` https://api.github.com/repos/${config?.group || owner}/${config?.repo || repo}/dispatches`;
+      console.log(`Notifyig Github on URL: ${githubActionURL}`);
+      console.log(`With data: ${JSON.stringify(body)}`);
+      try {
+        axios.post(
+          githubActionURL,
+          body,
+          {
+            headers: {
+              "Authorization": `Bearer ${config?.token}`
+            }
+          }
+        ).catch(({ response: { data, status } }) => {
+          console.log("Error status: ", status);
+          console.log("Error data: ", data);
+        });
+      } catch (e) {
+        console.log(e);
+      }
     }
     module2.exports = ghTrigger2;
   }
@@ -21886,6 +21907,10 @@ var toReleaseType = ({ comment, pull_request }) => {
   const { body: type } = comment || {};
   const label = pull_request?.labels?.find((item) => Object.keys(releaseTypes).includes(item?.name));
   console.log(JSON.stringify(label), "Found label");
+  if (label === "released" || label?.name === "released") {
+    console.log("PR contains released label, not releasing!");
+    return false;
+  }
   return {
     "bug": bug,
     "release": bug,
@@ -21921,8 +21946,9 @@ try {
   console.log(`GH config: ${JSON.stringify(ghConfig)}`);
   console.log(`This is release type: ${releaseType}`);
   const triggeredBy = action?.comment?.user?.login || action?.sender.login;
-  console.log("Can release?", allowedUsers.includes(triggeredBy));
-  if (merged) {
+  const canRelease = allowedUsers.includes(triggeredBy);
+  console.log("Can release?", canRelease);
+  if (merged && releaseType && canRelease) {
     console.log("PR has been merged!");
     createComment({ ...ghConfig, body: triggerRelease(releaseType) }, { botName: core.getInput("bot-name"), token: core.getInput("gh-bot-token") });
     if (isTravis) {
